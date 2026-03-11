@@ -20,9 +20,12 @@ function findIdx(name){name=name.trim();if(!name)return-1;for(var i=0;i<ORDERS.l
 function getNP(){var np={};if(!S.done)return np;var si=findIdx(S.sn),ei=findIdx(S.en);if(si<0||ei<0||si>ei)return np;for(var i=si;i<=ei;i++){ORDERS[i].parts.forEach(function(pn){np[pn]=(np[pn]||0)+1;});}return np;}
 function getTgt(){if(!S.done)return 0;var si=findIdx(S.sn),ei=findIdx(S.en);return(si<0||ei<0||si>ei)?0:ei-si+1;}
 function doCalcAll(){var np=getNP();return PARTS.map(function(p){
-  if(p.ia&&p.avg7>0){var nextW=S.done?Math.round(p.avg7*S.days):0;var sur=S.done?(p.s-nextW):p.s;var auto=S.done&&sur<0?-sur:0;return{c:p.c,n:p.n,s:p.s,p:p.p,avg10:p.avg7,wk:0,nextW:nextW,normal:0,sur:sur,auto:auto,instant:false,lt:false,ltTh:0,minStock:0,ia:true};}
+  // 即納7d（5070等）：即納ON時のみ計算
+  if(p.ia&&p.avg7>0){var nextW=S.done&&S.instOn?Math.round(p.avg7*S.days):0;var sur=S.done&&S.instOn?(p.s-nextW):p.s;var auto=S.done&&S.instOn&&sur<0?-sur:0;return{c:p.c,n:p.n,s:p.s,p:p.p,avg10:p.avg7,wk:0,nextW:nextW,normal:0,sur:sur,auto:auto,instant:false,lt:false,ltTh:0,minStock:0,ia:true};}
+  // リードタイム（メモリ・SSD）
   if(p.lt){return{c:p.c,n:p.n,s:p.s,p:p.p,avg10:p.avg10,wk:0,nextW:0,normal:0,sur:p.s,auto:0,instant:false,lt:true,ltTh:p.ltTh,minStock:0,ia:false};}
-  if(p.minStock>0){var sur=p.s-p.minStock;var auto=S.done&&sur<0?-sur:0;return{c:p.c,n:p.n,s:p.s,p:p.p,avg10:p.avg10,wk:0,nextW:0,normal:0,sur:sur,auto:auto,instant:false,lt:false,ltTh:0,minStock:p.minStock,ia:false};}
+  // 最低在庫（14700KF・9700X）：即納ON時のみ計算
+  if(p.minStock>0){var sur=p.s-p.minStock;var auto=S.done&&S.instOn&&sur<0?-sur:0;return{c:p.c,n:p.n,s:p.s,p:p.p,avg10:p.avg10,wk:0,nextW:0,normal:0,sur:sur,auto:auto,instant:false,lt:false,ltTh:0,minStock:p.minStock,ia:false};}
   // 即納：日平均×日数−在庫 / 非即納：在庫−通常制作分
   var nextW=S.done&&S.instOn?Math.round(p.avg10*S.days):0;
   var normal=np[p.n]||0;
