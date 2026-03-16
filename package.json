@@ -1,11 +1,5 @@
-{
-  "name": "mdl-order-app",
-  "version": "1.0.0",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.0"
-  }
-}
+// 変更後
+fetch('https://script.google.com/macros/s/AKfycby5U4kMdU8PLde3A_BqVBESczEELqFN2alSHrBdKmTgTcYmVKDsvtX4_A3Wh0BzHcdBvA/exec?action=getPartsData')
+  .then(r=>r.json())
+  .then(function(data){PARTS=data.parts||[];ORDERS=data.orders||[];render();})
+  .catch(function(err){document.getElementById('app').innerHTML='エラー: '+err.message;});
