@@ -1,5 +1,19 @@
-// 変更後
-fetch('https://script.google.com/macros/s/AKfycby5U4kMdU8PLde3A_BqVBESczEELqFN2alSHrBdKmTgTcYmVKDsvtX4_A3Wh0BzHcdBvA/exec?action=getPartsData')
-  .then(r=>r.json())
-  .then(function(data){PARTS=data.parts||[];ORDERS=data.orders||[];render();})
-  .catch(function(err){document.getElementById('app').innerHTML='エラー: '+err.message;});
+ {
+    "name": "mdl-order-app",
+    "version": "1.0.0",
+    "scripts": { "start": "node server.js" },
+    "dependencies": { "express": "^4.18.2" }
+  }
+
+  5. 「Commit changes」 を押す
+
+  ---
+  作業3: Renderで環境変数を設定
+
+  1. https://dashboard.render.com を開く
+  2. mdl-order-app をクリック
+  3. 左メニューの 「Environment」 をクリック
+  4. 「Add Environment Variable」 をクリック
+  5. Key に GAS_URL、Value に以下を貼る：
+
+  https://script.google.com/macros/s/AKfycby5U4kMdU8PLde3A_BqVBESczEELqFN2alSHrBdKmTgTcYmVKDsvtX4_A3Wh0BzHcdBvA/exec
