@@ -30,9 +30,10 @@ function toggleLtFilter(){S.ltFilter=!S.ltFilter;if(S.ltFilter){S.sa=true;S.cat=
 
 function saveShipment(row,dayIndex,value){
   var v=parseInt(value)||0;
-  google.script.run.withSuccessHandler(function(res){
-    var r=JSON.parse(res);
-    if(r.success){
+  fetch('/api/shipment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({row:row,dayIndex:dayIndex,value:v})})
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(res.success){
       TRACK_DATA.forEach(function(g){
         g.items.forEach(function(item){
           if(item.row===row){
@@ -44,7 +45,7 @@ function saveShipment(row,dayIndex,value){
       });
       render();
     }
-  }).saveShipment(JSON.stringify({row:row,dayIndex:dayIndex,value:v}));
+  });
 }
 
 function doCalcAll(){
@@ -91,22 +92,21 @@ function doSubmitOrder(){
   if(!confirm('\u767a\u6ce8\u3092\u78ba\u5b9a\u3057\u307e\u3059\u304b\uff1f\n\n'+items.length+'\u7a2e / '+items.reduce(function(s,i){return s+i.qty;},0)+'\u500b\n\u5408\u8a08: \u00a5'+tC.toLocaleString()))return;
   var btn=document.getElementById('submit-btn');
   if(btn){btn.textContent='\u9001\u4fe1\u4e2d...';btn.disabled=true;}
-  google.script.run.withSuccessHandler(function(res){
-    var r=JSON.parse(res);
-    if(r.success){
-      alert('\u767a\u6ce8\u78ba\u5b9a\uff01\n'+r.items+'\u7a2e');
+  fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items,totalAmount:tC})})
+  .then(function(r){return r.json();})
+  .then(function(res){
+    if(res.success){
+      alert('\u767a\u6ce8\u78ba\u5b9a\uff01\n'+res.items+'\u7a2e');
       if(btn){btn.textContent='\u2713 \u767a\u6ce8\u6e08\u307f';btn.style.background='#1a7f37';}
-      // 発注後管理データを再取得
-      google.script.run.withSuccessHandler(function(json){
-        var data=JSON.parse(json);
+      fetch('/api/parts').then(function(r){return r.json();}).then(function(data){
         PARTS=data.parts||[];ORDERS=data.orders||[];TRACK_DATA=data.trackData||[];
         S.view='track';S.trackDate='';render();
-      }).getPartsData();
+      });
     }
-  }).withFailureHandler(function(err){
+  }).catch(function(err){
     alert('\u30a8\u30e9\u30fc: '+err.message);
     if(btn){btn.textContent='\u767a\u6ce8\u78ba\u5b9a';btn.disabled=false;}
-  }).submitOrder(JSON.stringify({items:items,totalAmount:tC}));
+  });
 }
 
 function buildRows(f){
@@ -146,7 +146,7 @@ function render(){
   var ord=all.filter(function(x){return gQ(x.n,x.auto)>0;});
   var tC=ord.reduce(function(s,p){return s+gQ(p.n,p.auto)*p.p;},0);
   var tQ=ord.reduce(function(s,p){return s+gQ(p.n,p.auto);},0);
-  var df=S.budget-tC,tgt=getTgt(),cols=S.adj?10:9;
+  var df=S.budget-tC,cols=S.adj?10:9;
   var cm={};ord.forEach(function(p){if(!cm[p.c])cm[p.c]={c:0,q:0};var q=gQ(p.n,p.auto);cm[p.c].c+=q*p.p;cm[p.c].q+=q;});
   var cs=Object.entries(cm).sort(function(a,b){return b[1].c-a[1].c;});
   var ltAlerts=all.filter(function(x){return x.lt&&x.ltTh>0&&x.s<=x.ltTh;});
@@ -164,7 +164,7 @@ function render(){
     if(ltAlerts.length)h+='<div class="sc" style="border-color:#d72c0d;cursor:pointer'+(S.ltFilter?';background:#fff5f5':'')+'" onclick="toggleLtFilter()"><div class="lb" style="color:#d72c0d">\u26a0 \u88dc\u5145\u30a2\u30e9\u30fc\u30c8'+(S.ltFilter?' <span style="font-size:9px;background:#d72c0d;color:#fff;padding:1px 5px;border-radius:4px">\u8868\u793a\u4e2d</span>':'')+'</div><div class="vl" style="color:#d72c0d;font-size:18px">'+ltAlerts.length+'\u4ef6</div></div>';
     h+='</div><div class="mg"><div class="pn">';
     h+='<div class="ph"><span class="pt">\u767a\u6ce8\u30d1\u30fc\u30c4\u4e00\u89a7 ('+PARTS.length+')'+(S.ltFilter?' <span style="color:#d72c0d;font-size:11px">\u2190 \u88dc\u5145\u30a2\u30e9\u30fc\u30c8\u306e\u307f</span>':'')+'</span>';
-    h+='<div style="display:flex;gap:6px;align-items:center"><button class="bt'+(S.adj?' on':'')+'" onclick="toggleAdj()" style="'+(S.adj?'background:#2c6ecb;color:#fff;border-color:#2c6ecb':'')+'">'+(S.adj?'\u2713 \u8abf\u6574\u5b8c\u4e86':'\u270f\ufe0f \u8abf\u6574')+'</button><button class="bt" onclick="S.view=\'sheet\';render()">\uD83D\uDCCB \u767a\u6ce8\u30b7\u30fc\u30c8</button><button class="bt" onclick="doReset()">\u30ea\u30bb\u30c3\u30c8</button></div></div>';
+    h+='<div style="display:flex;gap:6px;align-items:center"><button class="bt'+(S.adj?' on':'')+'" onclick="toggleAdj()">'+(S.adj?'\u2713 \u8abf\u6574\u5b8c\u4e86':'\u270f\ufe0f \u8abf\u6574')+'</button><button class="bt" onclick="S.view=\'sheet\';render()">\uD83D\uDCCB \u767a\u6ce8\u30b7\u30fc\u30c8</button><button class="bt" onclick="doReset()">\u30ea\u30bb\u30c3\u30c8</button></div></div>';
     h+='<div class="fb"><input value="'+S.q+'" oninput="S.q=this.value;S.ltFilter=false;render()" placeholder="\u691c\u7d22...">';
     CATS.forEach(function(c){h+='<button class="bt'+(S.cat===c?' on':'')+'" onclick="S.cat=\''+c+'\';S.ltFilter=false;render()">'+c+'</button>';});
     h+='<button class="bt" style="margin-left:auto" onclick="S.sa=!S.sa;S.ltFilter=false;render()">'+(S.sa?'\u767a\u6ce8\u3042\u308a\u306e\u307f':'\u5168\u30d1\u30fc\u30c4')+'</button></div>';
@@ -180,7 +180,16 @@ function render(){
     if(S.instOn){h+='<div class="rs-l">\u5373\u7d0d\u8a08\u7b97 \u7d42\u4e86\u65e5</div><input class="rs-i" type="date" id="inp-date" value="'+S.targetDate+'" min="'+getTodayISO()+'" style="font-weight:700"><div class="date-info">\u4eca\u65e5 '+fmtDateJP(getTodayISO())+' \u2192 '+fmtDateJP(S.targetDate)+'('+getDOW(S.targetDate)+') = <strong>'+S.days+'\u65e5\u5206</strong></div>';}
     h+='<div class="rs-l">\u901a\u5e38\u5236\u4f5c \u958b\u59cb</div><input class="rs-i" type="text" id="inp-s" value="'+(S.sn||'')+'" placeholder="\u9867\u5ba2\u540d\u3092\u30b3\u30d4\u30da...">';
     h+='<div class="rs-l">\u901a\u5e38\u5236\u4f5c \u7d42\u4e86</div><input class="rs-i" type="text" id="inp-e" value="'+(S.en||'')+'" placeholder="\u9867\u5ba2\u540d\u3092\u30b3\u30d4\u30da...">';
-    if(S.done){var si=findIdx(S.sn),ei=findIdx(S.en);var siName=si>=0?ORDERS[si].name:'\u898b\u3064\u304b\u3089\u305a';var eiName=ei>=0?ORDERS[ei].name:'\u898b\u3064\u304b\u3089\u305a';h+='<div style="font-size:9px;color:#6d7175;margin-bottom:6px;padding:4px 6px;background:#f6f6f7;border-radius:4px">';h+='\u958b\u59cb: <span style="color:'+(si>=0?'#1a7f37':'#d72c0d')+';font-weight:700">'+siName+'</span><br>';h+='\u7d42\u4e86: <span style="color:'+(ei>=0?'#1a7f37':'#d72c0d')+';font-weight:700">'+eiName+'</span>';if(si>=0&&ei>=0&&si<=ei)h+='<br><span style="color:#2c6ecb">\u2192 '+getTgt()+'\u4ef6</span>';h+='</div>';}
+    if(S.done){
+      var si=findIdx(S.sn),ei=findIdx(S.en);
+      var siName=si>=0?ORDERS[si].name:'\u898b\u3064\u304b\u3089\u305a';
+      var eiName=ei>=0?ORDERS[ei].name:'\u898b\u3064\u304b\u3089\u305a';
+      h+='<div style="font-size:9px;color:#6d7175;margin-bottom:6px;padding:4px 6px;background:#f6f6f7;border-radius:4px">';
+      h+='\u958b\u59cb: <span style="color:'+(si>=0?'#1a7f37':'#d72c0d')+';font-weight:700">'+siName+'</span><br>';
+      h+='\u7d42\u4e86: <span style="color:'+(ei>=0?'#1a7f37':'#d72c0d')+';font-weight:700">'+eiName+'</span>';
+      if(si>=0&&ei>=0&&si<=ei)h+='<br><span style="color:#2c6ecb">\u2192 '+getTgt()+'\u4ef6</span>';
+      h+='</div>';
+    }
     h+='<button class="cbtn" onclick="doCalcBtn()">\u2192 \u8a08\u7b97\u3059\u308b</button>';
     h+='<button class="sbtn" id="submit-btn" onclick="doSubmitOrder()">\uD83D\uDCE6 \u767a\u6ce8\u78ba\u5b9a\uff08\u30b9\u30d7\u30b7\u306b\u8ee2\u8a18\uff09</button>';
     h+='<button class="clbtn" onclick="doClear()">\u30af\u30ea\u30a2</button>';
@@ -208,31 +217,23 @@ function render(){
     var selDate=S.trackDate||(TRACK_DATA.length?TRACK_DATA[0].date:'');
     var selGroup=TRACK_DATA.find(function(g){return g.date===selDate;})||{date:selDate,items:[]};
     var now=new Date();
-
-    // パーツ別未到着合計
     var arrivals={};
-    TRACK_DATA.forEach(function(g){
-      g.items.forEach(function(item){
-        if(item.remaining>0)arrivals[item.n]=(arrivals[item.n]||0)+item.remaining;
-      });
-    });
+    TRACK_DATA.forEach(function(g){g.items.forEach(function(item){if(item.remaining>0)arrivals[item.n]=(arrivals[item.n]||0)+item.remaining;});});
+    var totalArrival=Object.values(arrivals).reduce(function(s,v){return s+v;},0);
 
     h+='<div class="con">';
     h+='<div class="sr">';
     h+='<div class="sc"><div class="lb">\u767a\u6ce8\u65e5</div><div class="vl" style="font-size:20px">'+(now.getMonth()+1)+'/'+now.getDate()+'</div></div>';
     h+='<div class="sc"><div class="lb">\u767a\u6ce8\u30d1\u30fc\u30c4</div><div class="vl" style="font-size:20px">'+selGroup.items.length+'\u7a2e</div></div>';
-    // 未到着合計
-    var totalArrival=Object.values(arrivals).reduce(function(s,v){return s+v;},0);
     h+='<div class="sc"><div class="lb">\u672a\u5230\u7740\u5408\u8a08</div><div class="vl" style="font-size:20px;color:#2c6ecb">'+totalArrival+'\u500b</div></div>';
     h+='</div>';
 
-    // 日付タブ
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">';
     if(TRACK_DATA.length){
       TRACK_DATA.forEach(function(g){
         var isActive=g.date===selDate;
         var rem=g.items.reduce(function(s,i){return s+i.remaining;},0);
-        h+='<button class="bt'+(isActive?' on':'')+'" onclick="S.trackDate=\''+g.date+'\';render()">'+g.date+(rem>0?' <span style="background:#2c6ecb;color:#fff;border-radius:8px;padding:1px 5px;font-size:9px">残'+rem+'</span>':'')+'</button>';
+        h+='<button class="bt'+(isActive?' on':'')+'" onclick="S.trackDate=\''+g.date+'\';render()">'+g.date+(rem>0?' <span style="background:#2c6ecb;color:#fff;border-radius:8px;padding:1px 5px;font-size:9px">\u6b8b'+rem+'</span>':'')+'</button>';
       });
     }else{
       h+='<div style="color:#8c9196;font-size:12px">\u767a\u6ce8\u5c65\u6b74\u306a\u3057</div>';
@@ -244,19 +245,14 @@ function render(){
     h+='<th style="width:24px"></th><th>\u30d1\u30fc\u30c4\u540d</th>';
     h+='<th class="r" style="width:46px">\u5728\u5eab</th>';
     h+='<th class="r" style="width:54px;background:#e8f4fd;color:#2c6ecb">\u767a\u6ce8\u6570</th>';
-    ['\u6708','\u706b','\u6c34','\u6728','\u91d1','\u571f','\u65e5'].forEach(function(d){
-      h+='<th class="c" style="width:44px"><div style="font-size:9px;color:#8c9196">'+d+'</div></th>';
-    });
+    ['\u6708','\u706b','\u6c34','\u6728','\u91d1','\u571f','\u65e5'].forEach(function(d){h+='<th class="c" style="width:44px"><div style="font-size:9px;color:#8c9196">'+d+'</div></th>';});
     h+='<th class="r" style="width:54px;color:#d72c0d">\u6b8b\u6570(\u672a\u5230)</th>';
     h+='</tr></thead><tbody>';
 
     if(selGroup.items.length){
       var lc='';
       selGroup.items.forEach(function(item){
-        if(item.c!==lc){
-          lc=item.c;
-          h+='<tr class="cat-hdr"><td colspan="13"><span class="cd" style="background:'+(CC[item.c]||'#6d7175')+'"></span>\u3010'+item.c+'\u3011</td></tr>';
-        }
+        if(item.c!==lc){lc=item.c;h+='<tr class="cat-hdr"><td colspan="13"><span class="cd" style="background:'+(CC[item.c]||'#6d7175')+'"></span>\u3010'+item.c+'\u3011</td></tr>';}
         var partData=PARTS.find(function(p){return p.n===item.n;})||{sRaw:0};
         h+='<tr>';
         h+='<td><span class="cd" style="background:'+(CC[item.c]||'#6d7175')+'"></span></td>';
@@ -265,9 +261,7 @@ function render(){
         h+='<td class="r tn" style="font-weight:800;color:#2c6ecb;background:#f0f8ff">'+item.qty+'</td>';
         for(var di=0;di<7;di++){
           var sv=item.shipped[di]||0;
-          h+='<td class="c" style="padding:3px 2px">';
-          h+='<input type="number" style="width:36px;border:1px solid #e1e3e5;border-radius:4px;padding:2px;font-size:11px;text-align:center" value="'+(sv||'')+'" placeholder="\u2014" onchange="saveShipment('+item.row+','+di+',this.value)">';
-          h+='</td>';
+          h+='<td class="c" style="padding:3px 2px"><input type="number" style="width:36px;border:1px solid #e1e3e5;border-radius:4px;padding:2px;font-size:11px;text-align:center" value="'+(sv||'')+'" placeholder="\u2014" onchange="saveShipment('+item.row+','+di+',this.value)"></td>';
         }
         h+='<td class="r tn" style="font-weight:700;color:'+(item.remaining>0?'#d72c0d':'#1a7f37')+'">'+item.remaining+'</td>';
         h+='</tr>';
@@ -281,13 +275,14 @@ function render(){
   document.getElementById('app').innerHTML=h;
 }
 
-google.script.run.withSuccessHandler(function(json){
-  var data=JSON.parse(json);
+fetch('/api/parts')
+.then(function(r){return r.json();})
+.then(function(data){
   PARTS=data.parts||[];
   ORDERS=data.orders||[];
   TRACK_DATA=data.trackData||[];
   render();
-}).withFailureHandler(function(err){
+}).catch(function(err){
   document.getElementById('app').innerHTML='<div style="padding:40px;text-align:center;color:#d72c0d">\u30a8\u30e9\u30fc: '+err.message+'<br><br><button onclick="location.reload()" style="padding:8px 16px;cursor:pointer;border-radius:8px;border:1px solid #c9cccf">\u518d\u8a66\u884c</button></div>';
-}).getPartsData();
+});
 </script></body></html>
