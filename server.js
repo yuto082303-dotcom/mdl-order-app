@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 const GAS_URL = process.env.GAS_URL || '';
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static('public'));
